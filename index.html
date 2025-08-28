@@ -1,606 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Next-Gen Hidden Camera Detector</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Futuristic Hidden Camera Detector</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
-  :root{
-    --neon:#00fff5; --danger:#ff004c; --bg1:#0f2027; --bg2:#203a43; --bg3:#2c5364;
-  }
-  body{
-    margin:0; font-family:Inter, system-ui, Arial; background:radial-gradient(circle, var(--bg1), var(--bg2), var(--bg3)); color:var(--neon);
-    display:flex;flex-direction:column;align-items:center;padding:14px;
-  }
-  h1{margin:8px 0 6px; text-shadow:0 0 12px var(--neon); font-weight:700;}
-  .stage{display:flex;gap:18px;align-items:flex-start; width:100%; max-width:1200px;}
-  .video-wrap{position:relative; border-radius:14px; box-shadow:0 0 30px rgba(0,255,245,0.08); overflow:hidden; border:3px solid rgba(0,255,245,0.12);}
-  video{display:block; width:640px; height:480px; object-fit:cover; background:#000;}
-  canvas#overlay{position:absolute; left:0; top:0; width:640px; height:480px; pointer-events:none;}
-  .controls{flex:1; min-width:300px;}
-  .panel{background:rgba(0,0,0,0.12); border-radius:10px; padding:12px; margin-bottom:12px;}
-  label{color:var(--neon); font-size:0.95rem;}
-  input[type=range]{width:100%;}
-  .btn-neon{border:2px solid var(--neon); color:var(--neon); background:transparent; padding:8px 14px; border-radius:10px; margin:4px;}
-  .btn-neon:hover{background:var(--neon); color:#000;}
-  .status{display:flex;gap:8px; flex-wrap:wrap; align-items:center;}
-  .status .chip{padding:6px 8px; background:rgba(0,0,0,0.18); border-radius:8px; font-size:0.9rem;}
-  #minimap{width:160px;height:120px;border-radius:8px;border:1px solid rgba(0,255,245,0.12); background:#000;}
-  .log{max-height:160px;overflow:auto;background:rgba(255,255,255,0.02); padding:8px;border-radius:6px;font-size:0.85rem;}
-  .toggle{cursor:pointer; display:inline-block; padding:6px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);}
-  .footer-note{font-size:0.85rem;color:rgba(255,255,255,0.6); margin-top:12px;}
-  .hotbox{box-shadow:0 0 8px rgba(255,0,76,0.12); border:1px solid rgba(255,0,76,0.08); padding:6px;border-radius:6px;}
+    body {
+        background: radial-gradient(circle, #0f2027, #203a43, #2c5364);
+        color: #00fff5;
+        text-align: center;
+        padding: 20px;
+        font-family: 'Poppins', sans-serif;
+    }
+    h1 {
+        font-size: 2.5rem;
+        color: #00f0ff;
+        margin-bottom: 20px;
+        text-shadow: 0 0 15px #00fff5, 0 0 30px #00fff5;
+    }
+    #video {
+        border: 3px solid #00fff5;
+        border-radius: 15px;
+        box-shadow: 0 0 30px #00fff5;
+        max-width: 100%;
+    }
+    #strengthBar {
+        width: 80%;
+        height: 25px;
+        margin-top: 20px;
+        accent-color: #00fff5;
+    }
+    .alert-text {
+        font-size: 1.5rem;
+        color: #ff004c;
+        margin-top: 15px;
+        padding: 15px;
+        background: rgba(255,0,76,0.15);
+        border: 2px solid #ff004c;
+        border-radius: 10px;
+        text-shadow: 0 0 15px #ff004c;
+        display: none;
+        animation: blink 0.8s infinite alternate;
+    }
+    @keyframes blink {
+        from { opacity: 1; }
+        to { opacity: 0.5; }
+    }
+    .slider-and-button {
+        margin-top: 20px;
+        color: #00fff5;
+    }
+    input[type=range] {
+        width: 60%;
+        accent-color: #00fff5;
+    }
+    .neon-btn {
+        display: inline-block;
+        padding: 12px 25px;
+        color: #00fff5;
+        font-size: 1.2rem;
+        border: 2px solid #00fff5;
+        border-radius: 10px;
+        background: transparent;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-top: 20px;
+        transition: 0.3s;
+    }
+    .neon-btn:hover {
+        background: #00fff5;
+        color: #000;
+        box-shadow: 0 0 20px #00fff5;
+    }
 </style>
 </head>
 <body>
-  <h1>🚨 Next-Gen Hidden Camera Detector</h1>
+<h1>🚨 Futuristic Hidden Camera Detector</h1>
 
-  <div class="stage">
-    <div class="video-wrap">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="overlay" width="640" height="480"></canvas>
-    </div>
+<video id="video" width="640" height="480" autoplay></video>
+<canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
 
-    <div class="controls">
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <button id="startBtn" class="btn-neon">Start</button>
-            <button id="muteBtn" class="btn-neon">Mute</button>
-            <button id="calBtn" class="btn-neon">Calibrate (10s)</button>
-            <button id="screenshotBtn" class="btn-neon">Screenshot</button>
-          </div>
-          <div class="status">
-            <div class="chip" id="camStatus">Camera: Unknown</div>
-            <div class="chip" id="fpsStatus">FPS: 0</div>
-            <div class="chip" id="motionStatus">Motion: N/A</div>
-            <div class="chip" id="modeStatus">Mode: Visual-only</div>
-          </div>
-        </div>
-      </div>
+<progress id="strengthBar" value="0" max="100"></progress>
+<div class="alert-text" id="alertText">⚠️ Potential Hidden Camera Detected!</div>
 
-      <div class="panel">
-        <label>Adaptive threshold: k × σ  (k = <span id="kLabel">2.0</span>)</label>
-        <input id="kSlider" type="range" min="0.8" max="4.0" step="0.1" value="2.0">
+<div class="slider-and-button">
+    <label>Sensitivity (Threshold): <span id="thresholdValue">240</span></label><br>
+    <input type="range" id="thresholdRange" min="200" max="255" value="240">
+</div>
 
-        <label style="margin-top:8px">Saturation Reject (min S, 0–1): <span id="sLabel">0.15</span></label>
-        <input id="sSlider" type="range" min="0" max="1" step="0.01" value="0.15">
-
-        <label style="margin-top:8px">Persistence decay (0–1, lower = longer memory): <span id="decayLabel">0.90</span></label>
-        <input id="decaySlider" type="range" min="0.80" max="0.99" step="0.005" value="0.90">
-
-        <label style="margin-top:8px">Motion gating threshold: <span id="motionLabel">10</span></label>
-        <input id="motionSlider" type="range" min="2" max="40" step="1" value="10">
-
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-          <div>Hysteresis start: <input id="hStart" type="number" step="0.05" value="0.65" style="width:80px"></div>
-          <div>stop: <input id="hStop" type="number" step="0.05" value="0.45" style="width:80px"></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
-          <div>
-            <label>Heatmap overlay <span id="heatToggle" class="toggle">OFF</span></label><br>
-            <label>Mini-map</label><br>
-            <canvas id="minimap" width="160" height="120"></canvas>
-          </div>
-          <div style="flex:1;margin-left:10px">
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <div class="hotbox">Blobs: <span id="blobCount">0</span></div>
-              <div class="hotbox">Conf: <span id="confVal">0</span></div>
-              <div class="hotbox">Tiles hot: <span id="hotTiles">0</span></div>
-            </div>
-            <div style="margin-top:8px">
-              <label>Multi-tone buzzer: <span id="toneMode">ON</span></label><br>
-              <label>Voice alerts: <span id="voiceMode">ON</span></label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div style="display:flex;gap:8px;align-items:center">
-          <select id="cameraSelect" style="flex:1;padding:6px;border-radius:6px"></select>
-          <button id="applyCam" class="btn-neon">Apply</button>
-        </div>
-        <div style="margin-top:8px" class="log" id="history">History: (no detections yet)</div>
-        <div style="margin-top:8px; display:flex; gap:8px;">
-          <button id="downloadLog" class="btn-neon">Download Log</button>
-          <button id="clearLog" class="btn-neon">Clear</button>
-        </div>
-      </div>
-
-      <div class="footer-note">Tip: For best results dim ambient lights, keep camera steady, and use calibration.</div>
-    </div>
-  </div>
+<button class="neon-btn" id="startButton">Start Detection 🔊</button>
 
 <script>
-/* === CONFIG / SMALL HELPERS === */
-const VIDEO_W = 640, VIDEO_H = 480;
-const DS_W = 160, DS_H = 120; // analysis downsample
-const overlay = document.getElementById('overlay');
-const octx = overlay.getContext('2d');
-overlay.width = VIDEO_W; overlay.height = VIDEO_H;
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const strengthBar = document.getElementById("strengthBar");
+const alertText = document.getElementById("alertText");
+const thresholdRange = document.getElementById("thresholdRange");
+const thresholdValue = document.getElementById("thresholdValue");
+const startButton = document.getElementById("startButton");
 
-const minimap = document.getElementById('minimap');
-const mctx = minimap.getContext('2d');
+let threshold = parseInt(thresholdRange.value);
+let audioCtx, osc, gainNode;
+let consecutiveCount = 0;
 
-const video = document.getElementById('video');
-const startBtn = document.getElementById('startBtn');
-const muteBtn = document.getElementById('muteBtn');
-const calBtn = document.getElementById('calBtn');
-const screenshotBtn = document.getElementById('screenshotBtn');
-const historyDiv = document.getElementById('history');
-
-const kSlider = document.getElementById('kSlider');
-const kLabel = document.getElementById('kLabel');
-const sSlider = document.getElementById('sSlider');
-const sLabel = document.getElementById('sLabel');
-const decaySlider = document.getElementById('decaySlider');
-const decayLabel = document.getElementById('decayLabel');
-const motionSlider = document.getElementById('motionSlider');
-const motionLabel = document.getElementById('motionLabel');
-
-const heatToggle = document.getElementById('heatToggle');
-const blobCountEl = document.getElementById('blobCount');
-const confValEl = document.getElementById('confVal');
-const hotTilesEl = document.getElementById('hotTiles');
-const fpsStatus = document.getElementById('fpsStatus');
-const camStatus = document.getElementById('camStatus');
-const motionStatus = document.getElementById('motionStatus');
-const modeStatus = document.getElementById('modeStatus');
-const kInput = document.getElementById('kSlider');
-
-const hStart = document.getElementById('hStart');
-const hStop = document.getElementById('hStop');
-
-const cameraSelect = document.getElementById('cameraSelect');
-const applyCam = document.getElementById('applyCam');
-const downloadLog = document.getElementById('downloadLog');
-const clearLog = document.getElementById('clearLog');
-
-kSlider.addEventListener('input', ()=>kLabel.textContent = kSlider.value);
-sSlider.addEventListener('input', ()=>sLabel.textContent = sSlider.value);
-decaySlider.addEventListener('input', ()=>decayLabel.textContent = decaySlider.value);
-motionSlider.addEventListener('input', ()=>motionLabel.textContent = motionSlider.value);
-
-heatToggle.addEventListener('click', ()=>{
-  heatToggle.textContent = heatToggle.textContent==='OFF' ? 'ON' : 'OFF';
+thresholdRange.addEventListener("input", () => {
+  threshold = parseInt(thresholdRange.value);
+  thresholdValue.textContent = threshold;
 });
 
-downloadLog.addEventListener('click', ()=>{
-  const data = localStorage.getItem('detect_log') || '[]';
-  const blob = new Blob([data], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download = 'detection_log.json'; a.click();
-});
-clearLog.addEventListener('click', ()=>{ localStorage.removeItem('detect_log'); historyDiv.innerHTML = 'History: (cleared)'; });
-
-/* === STATE === */
-let stream = null;
-let running=false;
-let audioCtx=null, masterGain=null;
-let persistence = new Float32Array(DS_W*DS_H); // heat map (downsampled)
-let prevGray = new Float32Array(DS_W*DS_H);
-let tempGray = new Float32Array(DS_W*DS_H);
-let lastTimestamp = performance.now();
-let frameCount = 0;
-let fps = 0;
-let motionGating = false;
-let logArr = JSON.parse(localStorage.getItem('detect_log')||'[]');
-let mute=false;
-
-/* === UTIL: downsample frame into gray and saturation arrays === */
-function downsampleFrame(imgData, dstW=DS_W, dstH=DS_H){
-  // draw already done at full resolution in hidden canvas; we get image data
-  // We'll sample by block averaging to compute grayscale and saturation
-  const sw = VIDEO_W, sh = VIDEO_H;
-  const src = imgData.data;
-  const gray = new Float32Array(dstW*dstH);
-  const sat = new Float32Array(dstW*dstH);
-  const bx = Math.floor(sw / dstW), by = Math.floor(sh / dstH);
-  let di = 0;
-  for(let y=0;y<dstH;y++){
-    for(let x=0;x<dstW;x++){
-      let sumR=0,sumG=0,sumB=0, cnt=0;
-      const sx = x*bx, sy = y*by;
-      for(let yy=0;yy<by;yy++){
-        for(let xx=0;xx<bx;xx++){
-          const i = ((sy+yy)*sw + (sx+xx))*4;
-          sumR+=src[i]; sumG+=src[i+1]; sumB+=src[i+2]; cnt++;
-        }
-      }
-      const r=sumR/cnt, g=sumG/cnt, b=sumB/cnt;
-      const v = (r+g+b)/3;
-      gray[di] = v;
-      // saturation compute (HSV): s = (max-min)/max
-      const ma = Math.max(r,g,b), mi = Math.min(r,g,b);
-      sat[di] = ma>0 ? (ma-mi)/ma : 0;
-      di++;
-    }
+// Initialize camera
+async function initCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    await video.play();
+  } catch (err) {
+    alert("Camera access error: " + err.message);
   }
-  return {gray, sat};
 }
+window.addEventListener('load', initCamera);
 
-/* === CONNECTED COMPONENTS on small grid === */
-function findBlobs(binary, w, h){
-  const visited = new Uint8Array(w*h);
-  const blobs = [];
-  const dirs=[1, -1, w, -w];
-  for(let i=0;i<w*h;i++){
-    if(!binary[i] || visited[i]) continue;
-    // BFS
-    const q=[i]; visited[i]=1; let idx=0;
-    let minX=w, minY=h, maxX=0, maxY=0, area=0, perimeter=0;
-    while(idx<q.length){
-      const cur = q[idx++]; area++;
-      const y = Math.floor(cur / w), x = cur % w;
-      minX=Math.min(minX,x); minY=Math.min(minY,y); maxX=Math.max(maxX,x); maxY=Math.max(maxY,y);
-      // check 4-neighbors
-      for(const d of dirs){
-        const ni = cur + d;
-        if(d===1 || d===-1){ // horizontal neighbors: check bounds
-          const ny = Math.floor(ni / w), nx = ni % w;
-          if(ny!==y) continue;
-        }
-        if(ni<0||ni>=w*h || !binary[ni]) perimeter++;
-        else if(!visited[ni]){ visited[ni]=1; q.push(ni); }
-      }
-    }
-    // compute approx perimeter: already counted increments
-    const bboxW = maxX-minX+1, bboxH = maxY-minY+1;
-    blobs.push({minX,minY,maxX,maxY,area,bboxW,bboxH,perimeter});
-  }
-  return blobs;
-}
-
-/* === Non-max suppression (merge overlapping boxes) === */
-function mergeBoxes(boxes){
-  if(!boxes.length) return [];
-  boxes = boxes.slice();
-  let merged=true;
-  while(merged){
-    merged=false;
-    for(let i=0;i<boxes.length;i++){
-      for(let j=i+1;j<boxes.length;j++){
-        const A=boxes[i], B=boxes[j];
-        const ix = Math.max(A.minX,B.minX), iy = Math.max(A.minY,B.minY);
-        const ax = Math.min(A.maxX,B.maxX), ay = Math.min(A.maxY,B.maxY);
-        const interW = Math.max(0, ax-ix+1), interH = Math.max(0, ay-iy+1);
-        const inter = interW*interH;
-        const areaA = (A.maxX-A.minX+1)*(A.maxY-A.minY+1);
-        const areaB = (B.maxX-B.minX+1)*(B.maxY-B.minY+1);
-        const iou = inter / (areaA + areaB - inter);
-        if(iou>0.25){ // merge
-          const mergedBox = {
-            minX: Math.min(A.minX,B.minX),
-            minY: Math.min(A.minY,B.minY),
-            maxX: Math.max(A.maxX,B.maxX),
-            maxY: Math.max(A.maxY,B.maxY),
-            area: A.area + B.area
-          };
-          boxes.splice(j,1); boxes.splice(i,1); boxes.push(mergedBox);
-          merged=true; break;
-        }
-      }
-      if(merged) break;
-    }
-  }
-  return boxes;
-}
-
-/* === AUDIO: multi-tone buzzer (triad mapping) === */
-function initAudio(){
-  if(audioCtx) return;
+// Start detection with Sci-Fi buzzer
+startButton.addEventListener("click", () => {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // we'll create master gain and oscillators on demand
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = 0;
-  masterGain.connect(audioCtx.destination);
-}
-function playTone(conf){
-  if(!audioCtx) return;
-  // conf: 0..1
-  const base = 400 + conf*600;
-  // crete triad
-  const o1 = audioCtx.createOscillator(), g1 = audioCtx.createGain();
-  const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
-  const o3 = audioCtx.createOscillator(), g3 = audioCtx.createGain();
-  o1.type='sine'; o2.type='sine'; o3.type='sine';
-  o1.frequency.value = base; o2.frequency.value = base*1.26; o3.frequency.value = base*1.5;
-  g1.gain.value = conf*0.12; g2.gain.value=conf*0.08; g3.gain.value=conf*0.06;
-  o1.connect(g1).connect(masterGain); o2.connect(g2).connect(masterGain); o3.connect(g3).connect(masterGain);
-  o1.start(); o2.start(); o3.start();
-  // stop after short duration if low confidence, sustain if high
-  const dur = conf>0.6? 0.5 : 0.12;
-  setTimeout(()=>{ o1.stop(); o2.stop(); o3.stop(); }, dur*1000);
-}
+  osc = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  osc.connect(gainNode).connect(audioCtx.destination);
+  osc.type = "sine";  // Softer futuristic tone
+  osc.frequency.value = 0;
+  gainNode.gain.value = 0;
+  osc.start();
 
-/* === VOICE alert === */
-function voiceAlert(msg){
-  if(window.speechSynthesis && !mute){
-    const ut = new SpeechSynthesisUtterance(msg);
-    ut.lang='en-US'; ut.rate=0.95; ut.pitch=1.1;
-    speechSynthesis.speak(ut);
-  }
-}
-
-/* === Helper: save detection into localStorage history === */
-function logDetection(obj){
-  const entry = {ts: new Date().toISOString(), box: obj.box, conf: obj.conf, center: obj.center};
-  logArr.push(entry); localStorage.setItem('detect_log', JSON.stringify(logArr));
-  historyDiv.innerHTML = 'History:<br>' + logArr.slice(-20).reverse().map(e=>`${new Date(e.ts).toLocaleTimeString()} • conf:${(e.conf*100|0)} • ${e.center}`).join('<br>');
-}
-
-/* === CAMERA & Device enumeration === */
-async function enumerateCameras(){
-  try{
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cams = devices.filter(d => d.kind==='videoinput');
-    cameraSelect.innerHTML = '';
-    cams.forEach((c, idx)=> {
-      const opt = document.createElement('option');
-      opt.value = c.deviceId; opt.textContent = c.label || `Camera ${idx+1}`;
-      cameraSelect.appendChild(opt);
-    });
-  }catch(e){ console.warn(e); }
-}
-enumerateCameras();
-applyCam.addEventListener('click', async ()=>{
-  const id = cameraSelect.value;
-  if(!id) return alert('Select camera first');
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  try{
-    stream = await navigator.mediaDevices.getUserMedia({video:{deviceId: {exact:id}}, audio:false});
-    video.srcObject = stream; camStatus.textContent = 'Camera: OK';
-  }catch(e){ alert('Could not open camera: '+e.message); camStatus.textContent='Camera: Error'; }
+  detectLoop();
+  startButton.disabled = true;
 });
 
-/* === MAIN DETECTION LOOP === */
-let calibrateMode=false, calibrateSamples=0, calMeanSum=0, calStdSum=0;
-let baselineMean=128, baselineStd=20;
-let heatDecay = parseFloat(decaySlider.value);
-let motionThreshold = parseFloat(motionSlider.value);
-let hysteresisStart = parseFloat(hStart.value), hysteresisStop = parseFloat(hStop.value);
-let alertActive=false;
+function detectLoop() {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let brightSpots = 0;
 
-function combineBoxToVideoCoords(box){
-  // box coords are in downsample grid; convert to video coords
-  const scaleX = VIDEO_W/DS_W, scaleY = VIDEO_H/DS_H;
-  return {
-    x: Math.floor(box.minX * scaleX), y: Math.floor(box.minY * scaleY),
-    w: Math.floor((box.maxX - box.minX + 1) * scaleX), h: Math.floor((box.maxY - box.minY + 1) * scaleY)
-  };
-}
-
-async function detectTick(){
-  if(video.readyState < 2){ camStatus.textContent='Camera: No frames'; requestAnimationFrame(detectTick); return; }
-  if(!stream) { requestAnimationFrame(detectTick); return; }
-
-  // draw video to temp canvas
-  const tmp = document.createElement('canvas'); tmp.width=VIDEO_W; tmp.height=VIDEO_H;
-  const tctx = tmp.getContext('2d');
-  tctx.drawImage(video,0,0,VIDEO_W,VIDEO_H);
-  const img = tctx.getImageData(0,0,VIDEO_W,VIDEO_H);
-
-  // downsample & get gray and sat
-  const {gray, sat} = downsampleFrame(img, DS_W, DS_H);
-
-  // compute mean & std
-  let sum=0, sum2=0, n=gray.length;
-  for(let i=0;i<n;i++){ sum+=gray[i]; sum2+=gray[i]*gray[i]; }
-  const mean = sum/n; const std = Math.sqrt(Math.max(0, sum2/n - mean*mean));
-
-  // if calibrating, accumulate baseline
-  if(calibrateMode){
-    calMeanSum+=mean; calStdSum+=std; calibrateSamples++;
-    if(calibrateSamples>=80){ // ~10s @ ~8fps
-      baselineMean = Math.max(1, calMeanSum/calibrateSamples);
-      baselineStd  = Math.max(1, calStdSum/calibrateSamples);
-      calibrateMode=false; calibrateSamples=0; calMeanSum=0; calStdSum=0;
-      alert('Calibration finished. Baseline set.');
+  // Check only central region for accuracy
+  const startX = canvas.width / 2 - 100;
+  const startY = canvas.height / 2 - 100;
+  for (let y = startY; y < startY + 200; y += 5) {
+    for (let x = startX; x < startX + 200; x += 5) {
+      const i = (y * canvas.width + x) * 4;
+      const b = (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
+      if (b > threshold) brightSpots++;
     }
   }
 
-  // adaptive threshold
-  const k = parseFloat(kSlider.value);
-  const threshold = baselineMean + k * baselineStd;
+  const strength = Math.min(brightSpots, 200);
+  strengthBar.value = (strength / 200) * 100;
 
-  // motion gating: compare gray with prevGray
-  let meanDiff = 0;
-  for(let i=0;i<n;i++){ meanDiff += Math.abs(gray[i]-prevGray[i]||0); prevGray[i] = gray[i]; }
-  meanDiff /= n;
-  const motionGate = meanDiff > motionSlider.value;
-  motionStatus.textContent = motionGate ? `Motion: HIGH (${meanDiff|0})` : `Motion: LOW (${meanDiff|0})`;
+  if (strength > 5) consecutiveCount++;
+  else consecutiveCount = 0;
 
-  // update persistence decay
-  heatDecay = parseFloat(decaySlider.value);
-  for(let i=0;i<persistence.length;i++) persistence[i]*=heatDecay;
-
-  // if motion gating is enabled (we choose to skip detection if motion high)
-  if(!motionGate){
-    // build binary mask: brightness>threshold AND sat>minSat
-    const minS = parseFloat(sSlider.value);
-    const binary = new Uint8Array(n);
-    for(let i=0;i<n;i++){
-      if(gray[i] > threshold && sat[i] > minS){ binary[i]=1; persistence[i] = Math.min(1, persistence[i] + 0.25); } // boost persistence
-    }
-
-    // threshold persistence to find stable hot areas
-    const mask = new Uint8Array(n);
-    for(let i=0;i<n;i++) if(persistence[i] > 0.45) mask[i]=1;
-
-    // connected components
-    const blobs = findBlobs(mask, DS_W, DS_H);
-
-    // filter by area & circularity
-    const good = [];
-    for(const b of blobs){
-      const A = b.area;
-      if(A < 6 || A > 2000) continue; // skip tiny / huge
-      // approximate perimeter: already in b.perimeter
-      const P = Math.max(1, b.perimeter);
-      const circ = (4*Math.PI*A)/(P*P);
-      if(circ < 0.25) continue; // not round enough
-      // compute confidence from persistence average in bbox
-      let sumP=0, cnt=0;
-      for(let y=b.minY;y<=b.maxY;y++) for(let x=b.minX;x<=b.maxX;x++){
-        const idx = y*DS_W + x; sumP+=persistence[idx]; cnt++;
-      }
-      const conf = cnt? (sumP/cnt) : 0;
-      good.push({...b, circ, conf});
-    }
-
-    // merge boxes overlapping
-    const merged = mergeBoxes(good);
-    // compute conf and center for each merged
-    const results = merged.map(m => {
-      const cx = (m.minX + m.maxX)/2, cy = (m.minY+m.maxY)/2;
-      const conf = Math.min(1, (m.area/( (m.maxX-m.minX+1)*(m.maxY-m.minY+1) )) || 0.3);
-      return {box:m, conf, center:{x:cx,y:cy}};
-    });
-
-    // Draw on overlay
-    octx.clearRect(0,0,VIDEO_W,VIDEO_H);
-    // Draw heatmap if toggle on
-    if(heatToggle.textContent === 'ON'){
-      const imgData = octx.createImageData(DS_W,DS_H);
-      for(let i=0;i<DS_W*DS_H;i++){
-        const v = Math.min(1, persistence[i]);
-        const c = heatColor(v);
-        imgData.data[i*4]=c[0]; imgData.data[i*4+1]=c[1]; imgData.data[i*4+2]=c[2]; imgData.data[i*4+3]=80;
-      }
-      // scale up
-      const temp = document.createElement('canvas'); temp.width=DS_W; temp.height=DS_H;
-      temp.getContext('2d').putImageData(imgData,0,0);
-      octx.drawImage(temp, 0,0, VIDEO_W, VIDEO_H);
-    }
-
-    // draw boxes and annotations
-    let maxConf = 0;
-    for(const r of results){
-      const v = combineBoxToVideoCoords(r.box);
-      octx.strokeStyle = `rgba(255,0,76, ${0.9})`; octx.lineWidth = 3;
-      octx.strokeRect(v.x, v.y, v.w, v.h);
-      octx.fillStyle = 'rgba(255,0,76,0.85)'; octx.font='14px monospace';
-      const confPct = Math.round(r.conf*100);
-      octx.fillText(`conf:${confPct}% circ:${(r.box.circ||0).toFixed(2)}`, v.x+4, v.y+16);
-      maxConf = Math.max(maxConf, r.conf);
-      // voice alert & logging when confident
-      if(r.conf > (parseFloat(hStart.value)) && !alertActive){
-        // get position label
-        const cx = (v.x + v.x+v.w)/2, cy = (v.y + v.y+v.h)/2;
-        const pos = locatePosition(cx, cy);
-        if(!mute) voiceAlert(`Possible lens detected at ${pos}`);
-        logDetection({box:v, conf:r.conf, center:pos});
-      }
-    }
-
-    // audio buzzer mapping (multi-tone) with hysteresis
-    const confVal = maxConf;
-    document.getElementById('confVal').textContent = (confVal*100|0);
-    if(confVal > parseFloat(hStart.value) && !alertActive){
-      alertActive=true;
-      modeStatus.textContent='Mode: Alert';
-      if(!mute){ initAudio(); playTone(confVal); }
-    } else if(confVal < parseFloat(hStop.value) && alertActive){
-      alertActive=false; modeStatus.textContent='Mode: Visual-only';
-    }
-
-    // update blob count display
-    blobCountEl.textContent = results.length;
+  if (consecutiveCount >= 5) {
+    alertText.style.display = "block";
+    osc.frequency.value = 300 + strength * 2;
+    gainNode.gain.value = 0.3;
   } else {
-    // motion high: show gating overlay (fade)
-    octx.clearRect(0,0,VIDEO_W,VIDEO_H);
-    octx.fillStyle = 'rgba(255,255,255,0.02)'; octx.fillRect(0,0,VIDEO_W,VIDEO_H);
+    alertText.style.display = "none";
+    osc.frequency.value = 0;
+    gainNode.gain.value = 0;
   }
 
-  // update persistence minimap display
-  drawMiniMap();
-
-  // fps calc
-  frameCount++;
-  const now = performance.now();
-  if(now - lastTimestamp >= 1000){ fps = frameCount; frameCount=0; lastTimestamp=now; fpsStatus.textContent = 'FPS: '+fps; }
-  requestAnimationFrame(detectTick);
+  requestAnimationFrame(detectLoop);
 }
-
-/* === small utilities === */
-function heatColor(v){ // v:0..1
-  // map to blue->green->yellow->red
-  const r = Math.max(0, Math.min(255, (v-0.6)*255/0.4));
-  const g = Math.max(0, Math.min(255, (v-0.3)*255/0.3));
-  const b = Math.max(0, Math.min(255, (1-v)*255));
-  return [r|0, g|0, b|0];
-}
-function locatePosition(cx, cy){
-  const W = VIDEO_W, H = VIDEO_H;
-  const x = cx / W, y = cy / H;
-  if(y<0.33){
-    return x<0.33?'top-left': (x>0.66? 'top-right':'top-center');
-  } else if(y>0.66){
-    return x<0.33?'bottom-left': (x>0.66?'bottom-right':'bottom-center');
-  } else {
-    return x<0.33?'middle-left': (x>0.66?'middle-right':'center');
-  }
-}
-
-/* === mini-map draw === */
-function drawMiniMap(){
-  mctx.clearRect(0,0,minimap.width,minimap.height);
-  // draw persistence as small scaled image
-  const img = mctx.createImageData(DS_W,DS_H);
-  for(let i=0;i<DS_W*DS_H;i++){
-    const v = Math.min(1, persistence[i]);
-    const c = heatColor(v);
-    img.data[i*4]=c[0]; img.data[i*4+1]=c[1]; img.data[i*4+2]=c[2]; img.data[i*4+3]=150;
-  }
-  const tmp = document.createElement('canvas'); tmp.width=DS_W; tmp.height=DS_H;
-  tmp.getContext('2d').putImageData(img,0,0);
-  mctx.drawImage(tmp,0,0,minimap.width,minimap.height);
-  // optionally overlay hot tile count
-  let hotTiles=0;
-  for(let i=0;i<persistence.length;i++) if(persistence[i]>0.4) hotTiles++;
-  hotTilesEl.textContent = hotTiles;
-}
-
-/* === Screenshot merging video + overlay === */
-screenshotBtn.addEventListener('click', ()=>{
-  const c = document.createElement('canvas'); c.width=VIDEO_W; c.height=VIDEO_H;
-  const cc = c.getContext('2d');
-  cc.drawImage(video,0,0,VIDEO_W,VIDEO_H);
-  cc.drawImage(overlay,0,0,VIDEO_W,VIDEO_H);
-  const url = c.toDataURL('image/png');
-  const a = document.createElement('a'); a.href=url; a.download = 'snapshot.png'; a.click();
-});
-
-/* === start / stop / mute / calibration handlers === */
-startBtn.addEventListener('click', async ()=>{
-  if(!stream){
-    try{
-      stream = await navigator.mediaDevices.getUserMedia({video:{width:VIDEO_W,height:VIDEO_H}, audio:false});
-      video.srcObject = stream;
-      camStatus.textContent = 'Camera: OK';
-    }catch(e){ alert('Camera error: '+e.message); camStatus.textContent='Camera: Error'; return; }
-  }
-  if(!running){ running=true; detectTick(); startBtn.textContent='Running'; }
-});
-muteBtn.addEventListener('click', ()=>{ mute = !mute; muteBtn.textContent = mute ? 'Unmute' : 'Mute'; });
-
-calBtn.addEventListener('click', ()=>{
-  calibrateMode=true; calibrateSamples=0; calMeanSum=0; calStdSum=0;
-  alert('Calibration started: please move device around (10s).');
-  setTimeout(()=>{ calibrateMode=false; alert('Calibration finished.'); }, 10000);
-});
-
-/* === device enumeration refresh === */
-navigator.mediaDevices.addEventListener('devicechange', enumerateCameras);
-
-/* === initialize audio if user interacts (some browsers require click) === */
-document.addEventListener('click', ()=>{ if(!audioCtx) initAudio(); }, {once:true});
-
 </script>
 </body>
 </html>
