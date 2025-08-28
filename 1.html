@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hidden Camera Detector</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background-color: #f8f9fa; text-align: center; padding: 20px; }
+  #video { border: 2px solid #6c757d; border-radius: 8px; }
+  #strengthBar { width: 80%; height: 25px; margin-top: 20px; }
+  .alert-text { font-weight: bold; font-size: 1.2rem; color: red; margin-top: 10px; display: none; }
+  .slider-container { margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1 class="mb-4">📷 Hidden Camera Detector</h1>
+
+<video id="video" width="640" height="480" autoplay></video>
+<canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+<progress id="strengthBar" value="0" max="500" class="progress"></progress>
+<div class="alert-text" id="alertText">⚠️ Camera Detected!</div>
+
+<div class="slider-container">
+  <label for="thresholdRange" class="form-label">Sensitivity (Threshold):</label>
+  <input type="range" id="thresholdRange" min="150" max="255" value="240" class="form-range">
+</div>
+
+<button class="btn btn-primary mt-3" id="startButton">Start Detection 🔊</button>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const strengthBar = document.getElementById("strengthBar");
+const alertText = document.getElementById("alertText");
+const thresholdRange = document.getElementById("thresholdRange");
+const startButton = document.getElementById("startButton");
+
+let audioCtx, oscillator, gainNode;
+let cameraInitialized = false;
+let frameHistory = 0;
+
+// Start camera
+async function initializeCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    await video.play();
+    cameraInitialized = true;
+  } catch (err) {
+    alert("Error accessing camera: " + err.message);
+  }
+}
+
+// Init camera on load
+window.addEventListener("load", initializeCamera);
+
+// Start detection on button click
+startButton.addEventListener("click", () => {
+  if (!cameraInitialized) return alert("Camera not initialized!");
+
+  // Audio
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  oscillator = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  oscillator.type = "sawtooth"; // Different buzzer sound
+  oscillator.connect(gainNode).connect(audioCtx.destination);
+  oscillator.start();
+  oscillator.frequency.value = 0;
+  gainNode.gain.value = 0;
+
+  detectBrightSpots();
+  startButton.disabled = true;
+});
+
+// Detection loop
+function detectBrightSpots() {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const threshold = parseInt(thresholdRange.value);
+  let count = 0;
+
+  // Loop through pixels
+  for (let i = 0; i < frame.data.length; i += 4) {
+    const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+    const brightness = (r+g+b)/3;
+    if (brightness > threshold) count++;
+  }
+
+  // Normalize count
+  let strength = Math.min(count / 50, 500); // scale for progress bar
+  strengthBar.value = strength;
+
+  if (strength > 100) {
+    frameHistory++;
+  } else {
+    frameHistory = 0;
+  }
+
+  if (frameHistory > 5) { // Confirm detection for multiple frames
+    alertText.style.display = "block";
+    oscillator.frequency.value = 400 + strength * 2;
+    gainNode.gain.value = 0.2;
+  } else {
+    alertText.style.display = "none";
+    oscillator.frequency.value = 0;
+    gainNode.gain.value = 0;
+  }
+
+  requestAnimationFrame(detectBrightSpots);
+}
+</script>
+</body>
+</html>
