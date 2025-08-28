@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hidden Camera Detector</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body { background-color: #f8f9fa; text-align: center; padding: 20px; }
+  #video { border: 2px solid #6c757d; border-radius: 8px; }
+  #strengthBar { width: 80%; height: 25px; margin-top: 20px; }
+  .alert-text { font-weight: bold; font-size: 1.2rem; color: red; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+<h1 class="mb-4">📷 Hidden Camera Detector</h1>
+
+<video id="video" width="640" height="480" autoplay></video>
+<canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+<progress id="strengthBar" value="0" max="5000" class="progress"></progress>
+<div class="alert-text" id="alertText">⚠️ Camera Detected!</div>
+
+<button class="btn btn-primary mt-3" id="startButton">Start Detection 🔊</button>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const strengthBar = document.getElementById("strengthBar");
+const alertText = document.getElementById("alertText");
+const startButton = document.getElementById("startButton");
+
+// Access webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => { video.srcObject = stream; })
+  .catch(err => console.error("Error accessing webcam:", err));
+
+// Web Audio API (dynamic buzzer)
+let audioCtx, oscillator, gainNode;
+
+// Start detection only after user clicks button
+startButton.addEventListener("click", () => {
+  // Start Audio Context
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  oscillator = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  oscillator.connect(gainNode).connect(audioCtx.destination);
+  oscillator.type = "square";
+  oscillator.frequency.value = 0;
+  gainNode.gain.value = 0;
+  oscillator.start();
+
+  detectBrightSpots();
+  startButton.disabled = true; // disable button after starting
+});
+
+// Detection function
+function detectBrightSpots() {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let strength = 0;
+
+  for (let i = 0; i < frame.data.length; i += 4) {
+    const r = frame.data[i];
+    const g = frame.data[i+1];
+    const b = frame.data[i+2];
+    const brightness = (r+g+b)/3;
+    if (brightness > 250) strength++;
+  }
+
+  // Update progress bar
+  strengthBar.value = strength;
+  if(strength > 500) { strengthBar.style.backgroundColor = "red"; alertText.style.display = "block"; }
+  else if(strength > 200) { strengthBar.style.backgroundColor = "orange"; alertText.style.display = "none"; }
+  else { strengthBar.style.backgroundColor = "green"; alertText.style.display = "none"; }
+
+  // Dynamic buzzer: pitch & volume based on signal strength
+  if(strength > 100){
+    oscillator.frequency.value = 200 + Math.min(strength,5000)/10; // higher signal → higher pitch
+    gainNode.gain.value = Math.min(strength,5000)/5000;           // volume proportional to signal
+  } else {
+    oscillator.frequency.value = 0;
+    gainNode.gain.value = 0;
+  }
+
+  requestAnimationFrame(detectBrightSpots);
+}
+</script>
+</body>
+</html>
