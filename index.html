@@ -31,16 +31,46 @@ const strengthBar = document.getElementById("strengthBar");
 const alertText = document.getElementById("alertText");
 const startButton = document.getElementById("startButton");
 
-// Access webcam
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => { video.srcObject = stream; })
-  .catch(err => console.error("Error accessing webcam:", err));
+// Access webcam with error handling
+async function initializeCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } 
+    });
+    video.srcObject = stream;
+    video.play();
+    console.log('Camera access successful');
+    return true;
+  } catch (err) {
+    console.error('Error accessing webcam:', err);
+    alert('Could not access the camera. Please ensure camera permissions are granted and try again.');
+    return false;
+  }
+}
+
+// Initialize camera when page loads
+let cameraInitialized = false;
+window.addEventListener('load', async () => {
+  cameraInitialized = await initializeCamera();
+  if (!cameraInitialized) {
+    startButton.disabled = true;
+    startButton.textContent = 'Camera Not Available';
+  }
+});
 
 // Web Audio API (dynamic buzzer)
 let audioCtx, oscillator, gainNode;
 
 // Start detection only after user clicks button
-startButton.addEventListener("click", () => {
+startButton.addEventListener("click", async () => {
+  if (!cameraInitialized) {
+    cameraInitialized = await initializeCamera();
+    if (!cameraInitialized) return;
+  }
   // Start Audio Context
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   oscillator = audioCtx.createOscillator();
