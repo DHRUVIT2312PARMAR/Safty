@@ -10,7 +10,6 @@
   #video { border: 2px solid #6c757d; border-radius: 8px; }
   #strengthBar { width: 80%; height: 25px; margin-top: 20px; }
   .alert-text { font-weight: bold; font-size: 1.2rem; color: red; margin-top: 10px; display: none; }
-  .slider-container { margin-top: 20px; }
 </style>
 </head>
 <body>
@@ -19,13 +18,8 @@
 <video id="video" width="640" height="480" autoplay></video>
 <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
 
-<progress id="strengthBar" value="0" max="500" class="progress"></progress>
+<progress id="strengthBar" value="0" max="5000" class="progress"></progress>
 <div class="alert-text" id="alertText">⚠️ Camera Detected!</div>
-
-<div class="slider-container">
-  <label for="thresholdRange" class="form-label">Sensitivity (Threshold):</label>
-  <input type="range" id="thresholdRange" min="150" max="255" value="240" class="form-range">
-</div>
 
 <button class="btn btn-primary mt-3" id="startButton">Start Detection 🔊</button>
 
@@ -35,76 +29,87 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const strengthBar = document.getElementById("strengthBar");
 const alertText = document.getElementById("alertText");
-const thresholdRange = document.getElementById("thresholdRange");
 const startButton = document.getElementById("startButton");
 
-let audioCtx, oscillator, gainNode;
-let cameraInitialized = false;
-let frameHistory = 0;
-
-// Start camera
+// Access webcam with error handling
 async function initializeCamera() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } 
+    });
     video.srcObject = stream;
-    await video.play();
-    cameraInitialized = true;
+    video.play();
+    console.log('Camera access successful');
+    return true;
   } catch (err) {
-    alert("Error accessing camera: " + err.message);
+    console.error('Error accessing webcam:', err);
+    alert('Could not access the camera. Please ensure camera permissions are granted and try again.');
+    return false;
   }
 }
 
-// Init camera on load
-window.addEventListener("load", initializeCamera);
+// Initialize camera when page loads
+let cameraInitialized = false;
+window.addEventListener('load', async () => {
+  cameraInitialized = await initializeCamera();
+  if (!cameraInitialized) {
+    startButton.disabled = true;
+    startButton.textContent = 'Camera Not Available';
+  }
+});
 
-// Start detection on button click
-startButton.addEventListener("click", () => {
-  if (!cameraInitialized) return alert("Camera not initialized!");
+// Web Audio API (dynamic buzzer)
+let audioCtx, oscillator, gainNode;
 
-  // Audio
+// Start detection only after user clicks button
+startButton.addEventListener("click", async () => {
+  if (!cameraInitialized) {
+    cameraInitialized = await initializeCamera();
+    if (!cameraInitialized) return;
+  }
+  // Start Audio Context
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   oscillator = audioCtx.createOscillator();
   gainNode = audioCtx.createGain();
-  oscillator.type = "sawtooth"; // Different buzzer sound
   oscillator.connect(gainNode).connect(audioCtx.destination);
-  oscillator.start();
+  oscillator.type = "square";
   oscillator.frequency.value = 0;
   gainNode.gain.value = 0;
+  oscillator.start();
 
   detectBrightSpots();
-  startButton.disabled = true;
+  startButton.disabled = true; // disable button after starting
 });
 
-// Detection loop
+// Detection function
 function detectBrightSpots() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const threshold = parseInt(thresholdRange.value);
-  let count = 0;
+  let strength = 0;
 
-  // Loop through pixels
   for (let i = 0; i < frame.data.length; i += 4) {
-    const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+    const r = frame.data[i];
+    const g = frame.data[i+1];
+    const b = frame.data[i+2];
     const brightness = (r+g+b)/3;
-    if (brightness > threshold) count++;
+    if (brightness > 250) strength++;
   }
 
-  // Normalize count
-  let strength = Math.min(count / 50, 500); // scale for progress bar
+  // Update progress bar
   strengthBar.value = strength;
+  if(strength > 500) { strengthBar.style.backgroundColor = "red"; alertText.style.display = "block"; }
+  else if(strength > 200) { strengthBar.style.backgroundColor = "orange"; alertText.style.display = "none"; }
+  else { strengthBar.style.backgroundColor = "green"; alertText.style.display = "none"; }
 
-  if (strength > 100) {
-    frameHistory++;
+  // Dynamic buzzer: pitch & volume based on signal strength
+  if(strength > 100){
+    oscillator.frequency.value = 200 + Math.min(strength,5000)/10; // higher signal → higher pitch
+    gainNode.gain.value = Math.min(strength,5000)/5000;           // volume proportional to signal
   } else {
-    frameHistory = 0;
-  }
-
-  if (frameHistory > 5) { // Confirm detection for multiple frames
-    alertText.style.display = "block";
-    oscillator.frequency.value = 400 + strength * 2;
-    gainNode.gain.value = 0.2;
-  } else {
-    alertText.style.display = "none";
     oscillator.frequency.value = 0;
     gainNode.gain.value = 0;
   }
